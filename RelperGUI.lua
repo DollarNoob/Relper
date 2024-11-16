@@ -1,5 +1,6 @@
 -- TODOS:
 -- Coins ESP
+-- Expand Stab Hitbox
 -- Expand Throw Hitbox
 -- Shoot Murderer & Shoot Keybind & Shoot Hitbox
 -- Self Destruct, Labs
@@ -85,6 +86,7 @@ local function StartAutoFarm()
 
                 task.wait(Config["Slider:AutofarmInterval"] or 0.5)
 
+                -- TODO: do this outside of the loop
                 Workspace.Gravity = Gravity
                 Humanoid.Sit = false
 
@@ -320,7 +322,7 @@ MurdererTab:CreateToggle({
 MurdererTab:CreateButton({
 	Name = "Kill Sheriff / Hero",
 	Callback = function()
-		if not PlayerData[LocalPlayer.Name] or PlayerData[LocalPlayer.Name].Role ~= "Murderer" then
+		if not IsMurderer(LocalPlayer.Name) then
             return
         end
 
@@ -339,7 +341,7 @@ MurdererTab:CreateButton({
 
             Knife.Stab:FireServer()
             for i, v in pairs(Players:GetPlayers()) do
-                if v ~= LocalPlayer and v.Character and PlayerData[v.Name] and not PlayerData[v.Name].Died and (PlayerData[v.Name].Role == "Sheriff" or PlayerData[v.Name].Role == "Hero") then
+                if v ~= LocalPlayer and v.Character and (IsSheriff(v.Name) or IsHero(v.Name)) and not PlayerData[v.Name].Died then
                     firetouchinterest(v.Character.PrimaryPart, Knife.Handle, 0)
                     break
                 end
@@ -356,7 +358,7 @@ MurdererTab:CreateButton({
 MurdererTab:CreateButton({
 	Name = "Kill Innocents",
 	Callback = function()
-		if not PlayerData[LocalPlayer.Name] or PlayerData[LocalPlayer.Name].Role ~= "Murderer" then
+		if not IsMurderer(LocalPlayer.Name) then
             return
         end
 
@@ -375,7 +377,7 @@ MurdererTab:CreateButton({
 
             Knife.Stab:FireServer()
             for i, v in pairs(Players:GetPlayers()) do
-                if v ~= LocalPlayer and v.Character and PlayerData[v.Name] and not PlayerData[v.Name].Died and PlayerData[v.Name].Role == "Innocent" then
+                if v ~= LocalPlayer and v.Character and v.Character.PrimaryPart and IsInnocent(v.Name) and not PlayerData[v.Name].Died then
                     firetouchinterest(v.Character.PrimaryPart, Knife.Handle, 0)
                 end
             end
@@ -391,7 +393,7 @@ MurdererTab:CreateButton({
 MurdererTab:CreateButton({
 	Name = "Kill All",
 	Callback = function()
-        if not PlayerData[LocalPlayer.Name] or PlayerData[LocalPlayer.Name].Role ~= "Murderer" then
+        if not IsMurderer(LocalPlayer.Name) then
             return
         end
 
@@ -473,7 +475,7 @@ SheriffTab:CreateButton({
 	Name = "Grab Gun",
 	Callback = function(Value)
 	    local Character = LocalPlayer.Character
-		if not Character or not PlayerData[LocalPlayer.Name] or PlayerData[LocalPlayer.Name].Role ~= "Innocent" then
+		if not Character or not IsInnocent(LocalPlayer.Name) then
 		    return
 		end
 
@@ -522,7 +524,7 @@ SheriffTab:CreateSection("Blatant")
 SheriffTab:CreateButton({
 	Name = "Kill Murderer",
 	Callback = function()
-	    if not PlayerData[LocalPlayer.Name] or not (PlayerData[LocalPlayer.Name].Role == "Sheriff" or PlayerData[LocalPlayer.Name].Role == "Hero") then
+	    if not IsSheriff(LocalPlayer.Name) and not IsHero(LocalPlayer.Name) then
             return
         end
 
@@ -537,7 +539,7 @@ SheriffTab:CreateButton({
 
             local Murderer = nil
             for i, v in pairs(PlayerData) do
-                if v.Role == "Murderer" then
+                if IsMurderer(i) then
                     Murderer = Players:FindFirstChild(i)
                     break
                 end
@@ -695,7 +697,7 @@ SettingsTab:CreateToggle({
 RunService.Heartbeat:Connect(function(step)
     local Config = getgenv().Relper.Config
 
-    if Config["Toggle:AutoStab"] and PlayerData[LocalPlayer.Name] and PlayerData[LocalPlayer.Name].Role == "Murderer" then
+    if Config["Toggle:AutoStab"] and IsMurderer(LocalPlayer.Name) then
         local Distance = Config["Slider:AutoStabDistance"]
         local OnlyOnHand = Config["Toggle:AutoStabOnlyOnHand"]
 		local Character = LocalPlayer.Character
@@ -705,7 +707,7 @@ RunService.Heartbeat:Connect(function(step)
             local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
             local Position = Character.PrimaryPart.Position
             for i, v in pairs(Players:GetPlayers()) do
-                if v ~= LocalPlayer and v.Character and PlayerData[v.Name] and not PlayerData[v.Name].Died and v:DistanceFromCharacter(Position) <= Distance then
+                if v ~= LocalPlayer and v.Character and v.Character.PrimaryPart and PlayerData[v.Name] and not PlayerData[v.Name].Died and v:DistanceFromCharacter(Position) <= Distance then
                     local Equipped = true
                     if Knife.Parent == LocalPlayer.Backpack then
                         Equipped = false
@@ -725,14 +727,14 @@ RunService.Heartbeat:Connect(function(step)
         end
     end
 
-    if Config["Toggle:AutoKillSheriff"] and PlayerData[LocalPlayer.Name] and PlayerData[LocalPlayer.Name].Role == "Murderer" then
+    if Config["Toggle:AutoKillSheriff"] and IsMurderer(LocalPlayer.Name) then
 		local Character = LocalPlayer.Character
         local Knife = get_knife(LocalPlayer)
 
         if Character and Knife then
             local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
             for i, v in pairs(Players:GetPlayers()) do
-                if v ~= LocalPlayer and v.Character and PlayerData[v.Name] and not PlayerData[v.Name].Died and (PlayerData[v.Name].Role == "Sheriff" or PlayerData[v.Name].Role == "Hero") then
+                if v ~= LocalPlayer and v.Character and v.Character.PrimaryPart and (IsSheriff(v.Name) or IsHero(v.Name)) and not PlayerData[v.Name].Died then
                     local Equipped = true
                     if Knife.Parent == LocalPlayer.Backpack then
                         Equipped = false
@@ -752,15 +754,14 @@ RunService.Heartbeat:Connect(function(step)
         end
     end
 
-    if Config["Toggle:DroppedGunHitbox"] and PlayerData[LocalPlayer.Name] and PlayerData[LocalPlayer.Name].Role == "Innocent" then
+    if Config["Toggle:DroppedGunHitbox"] and IsInnocent(LocalPlayer.Name) then
         local Distance = Config["Slider:DroppedGunHitboxSize"]
         local Character = LocalPlayer.Character
         local Map = GetMap()
         if Map then
             local GunDrop = Map:FindFirstChild("GunDrop")
 
-    		if Character and GunDrop then
-    		    local PrimaryPart = Character.PrimaryPart
+    		if Character and Character.PrimaryPart and GunDrop then
     		    if LocalPlayer:DistanceFromCharacter(GunDrop.Position) <= Distance then
     		        firetouchinterest(Character.PrimaryPart, GunDrop, 0)
     		    end
@@ -771,9 +772,69 @@ RunService.Heartbeat:Connect(function(step)
     -- shoot Murderer
 end)
 
+function IsMurderer(Name)
+    if PlayerData[Name] and (PlayerData[Name].Role == "Murderer" or PlayerData[Name].Role == "Vampire") then
+        return true
+    else
+        return false
+    end
+end
+
+function IsSheriff(Name)
+    if PlayerData[Name] and (PlayerData[Name].Role == "Sheriff" or PlayerData[Name].Role == "Hunter") then
+        return true
+    else
+        return false
+    end
+end
+
+function IsHero(Name)
+    if PlayerData[Name] and PlayerData[Name].Role == "Hero" then
+        return true
+    elseif PlayerData[Name] and (PlayerData[Name].Role == "Sheriff" or PlayerData[Name].Role == "Hunter") then
+        return false
+    else
+        local Player = Players:FindFirstChild(Name)
+        if not Player then
+            return false
+        end
+
+        -- Fallback for Vampire mode
+        for i, v in pairs(Player.Backpack:GetChildren()) do
+            local IsGun = v:FindFirstChild("IsGun")
+            if IsGun and IsGun.Value then
+                return true
+            end
+        end
+
+        if Player.Character then
+            for i, v in pairs(Player.Character:GetChildren()) do
+                if not v:IsA("Tool") then
+                    continue
+                end
+
+                local IsGun = v:FindFirstChild("IsGun")
+                if IsGun and IsGun.Value then
+                    return true
+                end
+            end
+        end
+
+        return false
+    end
+end
+
+function IsInnocent(Name)
+    if PlayerData[Name] and (PlayerData[Name].Role == "Innocent" or PlayerData[Name].Role == "Villager") then
+        return true
+    else
+        return false
+    end
+end
+
 function GetMap()
     for i, v in pairs(Workspace:GetChildren()) do
-        if v:FindFirstChild("Base") and (v:FindFirstChild("CoinAreas") or v:FindFirstChild("CoinContainer")) and v:FindFirstChild("Spawns") then
+        if v:FindFirstChild("Base") and (v:FindFirstChild("CoinAreas") or v:FindFirstChild("CoinContainer")) then
             return v
         end
     end
@@ -866,11 +927,11 @@ function handle_esp(data)
     for i, v in pairs(PlayerData) do
         if Config["Toggle:HideSelfESP"] and i == LocalPlayer.Name then
             continue
-        elseif v.Role == "Murderer" and not Config["Toggle:MurdererESP"] then
+        elseif IsMurderer(i) and not Config["Toggle:MurdererESP"] then
             continue
-        elseif (v.Role == "Sheriff" or v.Role == "Hero") and not Config["Toggle:SheriffESP"] then
+        elseif (IsSheriff(i) or IsHero(i)) and not Config["Toggle:SheriffESP"] then
             continue
-        elseif v.Role == "Innocent" and not Config["Toggle:InnocentESP"] then
+        elseif IsInnocent(i) and not Config["Toggle:InnocentESP"] then
             continue
         end
 
@@ -885,13 +946,13 @@ function handle_esp(data)
         Highlight.Adornee = Player.Character
         Highlight.FillTransparency = 0.3
 
-        if v.Role == "Murderer" then
+        if IsMurderer(i) then
             Highlight.FillColor = Color3.fromRGB(255, 0, 0)
-        elseif v.Role == "Sheriff" or (Config["Toggle:TreatHeroAsSheriff"] and v.Role == "Hero") then
+        elseif IsSheriff(i) or (Config["Toggle:TreatHeroAsSheriff"] and IsHero(i)) then
             Highlight.FillColor = Color3.fromRGB(0, 0, 255)
-        elseif v.Role == "Hero" then
+        elseif IsHero(i) then
             Highlight.FillColor = Color3.fromRGB(255, 255, 0)
-        elseif v.Role == "Innocent" then
+        elseif IsInnocent(i) then
             Highlight.FillColor = Color3.fromRGB(0, 255, 0)
             Highlight.FillTransparency = 0.8
         end
@@ -927,7 +988,7 @@ getgenv().Relper.Events.OnCoinCollected = Remotes.Gameplay.CoinCollected.OnClien
             local Map = GetMap()
 
             -- Teleport to nearest spawn to reduce round time
-            if Map and PrimaryPart and PlayerData[LocalPlayer.Name] and (PlayerData[LocalPlayer.Name].Role == "Sheriff" or PlayerData[LocalPlayer.Name].Role == "Hero") then
+            if Map and PrimaryPart and (IsSheriff(LocalPlayer.Name) or IsHero(LocalPlayer.Name)) then
                 local Spawn = nil
                 local MinDistance = math.huge
                 for i, v in pairs(Map.Spawns:GetChildren()) do
@@ -940,7 +1001,7 @@ getgenv().Relper.Events.OnCoinCollected = Remotes.Gameplay.CoinCollected.OnClien
 
                 if Spawn then
                     local Tween = TweenService:Create(PrimaryPart, TweenInfo.new(MinDistance / (Config["Slider:AutofarmSpeed"] or 20)), {
-                        CFrame = Spawn.CFrame * CFrame.new(0, Humanoid.HipHeight, 0)
+                        CFrame = Spawn:GetPivot() * CFrame.new(0, Humanoid.HipHeight, 0)
                     })
                     Tween:Play()
                     Tween.Completed:Wait()
@@ -962,7 +1023,7 @@ getgenv().Relper.Events.OnGunDrop = Workspace.DescendantAdded:Connect(function(d
     if descendant.Name == "GunDrop" then
         local Config = getgenv().Relper.Config
 
-        if Config["Toggle:AutoGrabGun"] and PlayerData[LocalPlayer.Name] and PlayerData[LocalPlayer.Name].Role == "Innocent" then
+        if Config["Toggle:AutoGrabGun"] and IsInnocent(LocalPlayer.Name) then
             local Character = LocalPlayer.Character
     		if Character then
     		    firetouchinterest(Character.PrimaryPart, descendant, 0)
